@@ -4,10 +4,11 @@
 import logging
 from typing import Any, List, Literal, Optional, TypedDict
 
-from jsonschema import ValidationError, validate  # type: ignore
+from jsonschema import ValidationError, validate
 from libcommon.dataset import DatasetError
 from libcommon.operations import delete_dataset, move_dataset, update_dataset
 from libcommon.processing_graph import ProcessingStep
+from libcommon.queue import Priority
 from starlette.requests import Request
 from starlette.responses import Response
 
@@ -49,7 +50,8 @@ class MoonWebhookV2Payload(TypedDict):
 
 def parse_payload(json: Any) -> MoonWebhookV2Payload:
     validate(instance=json, schema=schema)
-    return json
+    return json  # type: ignore
+    # ^ validate() ensures the content is correct, but does not give the type
 
 
 def process_payload(
@@ -71,6 +73,7 @@ def process_payload(
             hf_endpoint=hf_endpoint,
             hf_token=hf_token,
             force=False,
+            priority=Priority.NORMAL,
         )
     elif event == "remove":
         delete_dataset(dataset=dataset)
@@ -85,6 +88,7 @@ def process_payload(
             hf_endpoint=hf_endpoint,
             hf_token=hf_token,
             force=False,
+            priority=Priority.NORMAL,
         )
 
 
@@ -103,7 +107,8 @@ def create_webhook_endpoint(
         except ValidationError:
             content = {"status": "error", "error": "the JSON payload is invalid"}
             return get_response(content, 400)
-        except Exception:
+        except Exception as e:
+            logging.exception("Unexpected error", exc_info=e)
             content = {"status": "error", "error": "unexpected error"}
             return get_response(content, 500)
 

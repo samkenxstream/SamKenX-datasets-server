@@ -5,12 +5,9 @@ from http import HTTPStatus
 from typing import Literal, Optional
 
 import requests
-from huggingface_hub.hf_api import (
-    DatasetInfo,
-    HfApi,
-    RepositoryNotFoundError,
-    build_hf_headers,
-)
+from huggingface_hub.hf_api import DatasetInfo, HfApi
+from huggingface_hub.utils._errors import RepositoryNotFoundError
+from huggingface_hub.utils._headers import build_hf_headers
 
 from libcommon.exceptions import CustomError
 
@@ -111,7 +108,9 @@ def ask_access(dataset: str, hf_endpoint: str, hf_token: Optional[str]) -> None:
         if r.status_code == 403:
             raise GatedDisabledError("The dataset is gated and access is disabled.") from err
         if r.status_code in [401, 404]:
-            raise DatasetNotFoundError("The dataset does not exist on the Hub, or is private.") from err
+            raise DatasetNotFoundError(
+                "The dataset does not exist on the Hub, or is private. Private datasets are not yet supported."
+            ) from err
         raise err
 
 
@@ -148,8 +147,8 @@ def get_dataset_info_for_supported_datasets(
         dataset_info = HfApi(endpoint=hf_endpoint).dataset_info(repo_id=dataset, token=hf_token)
     except RepositoryNotFoundError:
         ask_access(dataset=dataset, hf_endpoint=hf_endpoint, hf_token=hf_token)
-    if dataset_info.private is True:
-        raise DatasetNotFoundError("The dataset does not exist on the Hub, or is private.")
+    if dataset_info.private:
+        raise DatasetNotFoundError("The dataset is private and private datasets are not yet supported.")
     return dataset_info
 
 
@@ -213,3 +212,7 @@ def check_support(
         - ['~requests.exceptions.HTTPError']: any other error when asking access
     """
     get_dataset_info_for_supported_datasets(dataset=dataset, hf_endpoint=hf_endpoint, hf_token=hf_token)
+
+
+def get_supported_datasets(hf_endpoint: str, hf_token: Optional[str] = None) -> list[str]:
+    return [d.id for d in HfApi(endpoint=hf_endpoint, token=hf_token).list_datasets() if d.id and not d.private]

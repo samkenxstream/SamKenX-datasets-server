@@ -8,14 +8,14 @@ from typing import List, Optional
 from libcommon.dataset import check_support
 from libcommon.exceptions import LoggedError
 from libcommon.processing_graph import ProcessingStep
-from libcommon.queue import Queue
+from libcommon.queue import Priority, Queue
 from libcommon.simple_cache import DoesNotExist, delete_dataset_responses, get_response
 
 
 class PreviousStepError(LoggedError):
     def __init__(self, dataset: str, step: ProcessingStep, config: Optional[str] = None, split: Optional[str] = None):
         super().__init__(
-            f"Response for {step.endpoint} for dataset={dataset}, config={config}, split={split} is an error."
+            f"Response for {step.job_type} for dataset={dataset}, config={config}, split={split} is an error."
         )
 
 
@@ -25,6 +25,8 @@ def update_dataset(
     hf_endpoint: str,
     hf_token: Optional[str] = None,
     force: bool = False,
+    priority: Priority = Priority.NORMAL,
+    do_check_support: bool = True,
 ) -> None:
     """
     Update a dataset
@@ -35,17 +37,21 @@ def update_dataset(
         hf_endpoint (str): the HF endpoint
         hf_token (Optional[str], optional): The HF token. Defaults to None.
         force (bool, optional): Force the update. Defaults to False.
+        priority (Priority, optional): The priority of the job. Defaults to Priority.NORMAL.
+        do_check_support (bool, optional): Check if the dataset is supported. Defaults to True.
 
     Returns: None.
 
     Raises:
         - [`~libcommon.dataset.DatasetError`]: if the dataset could not be accessed or is not supported
     """
-    check_support(dataset=dataset, hf_endpoint=hf_endpoint, hf_token=hf_token)
+    if do_check_support:
+        check_support(dataset=dataset, hf_endpoint=hf_endpoint, hf_token=hf_token)
     logging.debug(f"refresh dataset='{dataset}'")
+    queue = Queue()
     for init_processing_step in init_processing_steps:
         if init_processing_step.input_type == "dataset":
-            Queue(type=init_processing_step.job_type).upsert_job(dataset=dataset, force=force)
+            queue.upsert_job(job_type=init_processing_step.job_type, dataset=dataset, force=force, priority=priority)
 
 
 def delete_dataset(dataset: str) -> None:
@@ -68,6 +74,7 @@ def move_dataset(
     hf_endpoint: str,
     hf_token: Optional[str] = None,
     force: bool = False,
+    priority: Priority = Priority.NORMAL,
 ) -> None:
     """
     Move a dataset
@@ -82,6 +89,7 @@ def move_dataset(
         hf_endpoint (str): the HF endpoint
         hf_token (Optional[str], optional): The HF token. Defaults to None.
         force (bool, optional): Force the update. Defaults to False.
+        priority (Priority, optional): The priority of the job. Defaults to Priority.NORMAL.
 
     Returns: None.
 
@@ -95,6 +103,7 @@ def move_dataset(
         hf_endpoint=hf_endpoint,
         hf_token=hf_token,
         force=force,
+        priority=priority,
     )
     # ^ can raise
     delete_dataset(dataset=from_dataset)
@@ -127,8 +136,10 @@ def check_in_process(
         - [`~libcommon.dataset.DatasetError`]: if the dataset could not be accessed or is not supported
     """
     all_steps = processing_step.get_ancestors() + [processing_step]
+    queue = Queue()
     if any(
-        Queue(type=step.job_type).is_job_in_process(dataset=dataset, config=config, split=split) for step in all_steps
+        queue.is_job_in_process(job_type=step.job_type, dataset=dataset, config=config, split=split)
+        for step in all_steps
     ):
         # the processing step, or a previous one, is still being computed
         return
@@ -142,6 +153,8 @@ def check_in_process(
                 init_processing_steps=init_processing_steps,
                 hf_endpoint=hf_endpoint,
                 hf_token=hf_token,
+                force=False,
+                priority=Priority.NORMAL,
             )
             return
         if result["http_status"] != HTTPStatus.OK:
@@ -153,5 +166,7 @@ def check_in_process(
         init_processing_steps=init_processing_steps,
         hf_endpoint=hf_endpoint,
         hf_token=hf_token,
+        force=False,
+        priority=Priority.NORMAL,
     )
     return

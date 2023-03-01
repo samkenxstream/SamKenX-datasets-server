@@ -16,7 +16,7 @@ env:
   POETRY_VIRTUALENVS_IN_PROJECT: false
   mongo-port: "27017"
   python-version: "3.9.15"
-  poetry-version: "1.2.2"
+  poetry-version: "1.3.2"
 jobs:
   unit-tests:
     defaults:
@@ -49,6 +49,7 @@ jobs:
         env:
           CACHE_MONGO_URL: mongodb://localhost:${{ env.mongo-port }}
           QUEUE_MONGO_URL: mongodb://localhost:${{ env.mongo-port }}
+          DATABASE_MIGRATIONS_MONGO_URL: mongodb://localhost:${{ env.mongo-port }}
         run: poetry run python -m pytest -s --cov=./ --cov-report=xml:./coverage.xml --cov-report=term tests
       - name: Prepare codecov flag (slash "/" is not allowed)
         id: remove-slash
@@ -59,5 +60,5 @@ jobs:
         with:
           working-directory: ${{ inputs.working-directory }}
           files: ./coverage.xml
-          fail_ci_if_error: true
+          fail_ci_if_error: false
           flags: ${{ env.codecov_flag }}

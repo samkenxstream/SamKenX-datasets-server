@@ -5,6 +5,15 @@ name: libs/libcommon
 on:
   workflow_dispatch:
   push:
+    branches:
+      - main
+    paths:
+      - 'libs/libcommon/**'
+      - '.github/workflows/l-libcommon.yml'
+      - '.github/workflows/_quality-python.yml'
+      - '.github/workflows/_unit-tests-python.yml'
+      - 'tools/docker-compose-mongo.yml'
+  pull_request:
     paths:
       - 'libs/libcommon/**'
       - '.github/workflows/l-libcommon.yml'

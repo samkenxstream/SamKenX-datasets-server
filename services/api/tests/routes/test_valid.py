@@ -9,7 +9,7 @@ from api.config import AppConfig
 from api.routes.valid import get_valid, is_valid
 
 dataset_step = ProcessingStep(
-    endpoint="/dataset-step",
+    name="/dataset-step",
     input_type="dataset",
     requires=None,
     required_by_dataset_viewer=False,
@@ -17,8 +17,17 @@ dataset_step = ProcessingStep(
     ancestors=[],
     children=[],
 )
+config_step = ProcessingStep(
+    name="/config-step",
+    input_type="config",
+    requires=None,
+    required_by_dataset_viewer=False,
+    parent=None,
+    ancestors=[],
+    children=[],
+)
 split_step = ProcessingStep(
-    endpoint="/split-step",
+    name="/split-step",
     input_type="split",
     requires=None,
     required_by_dataset_viewer=False,
@@ -69,17 +78,19 @@ def test_one_step(
     [
         ([], True, []),
         ([dataset_step], True, ["dataset"]),
+        ([config_step], True, ["dataset"]),
         ([split_step], True, ["dataset"]),
-        ([dataset_step, split_step], True, ["dataset"]),
+        ([dataset_step, config_step, split_step], True, ["dataset"]),
     ],
 )
-def test_two_steps(
+def test_three_steps(
     processing_steps_for_valid: List[ProcessingStep], expected_is_valid: bool, expected_valid: List[str]
 ) -> None:
     dataset = "dataset"
     config = "config"
     split = "split"
     upsert_response(kind=dataset_step.cache_kind, dataset=dataset, content={}, http_status=HTTPStatus.OK)
+    upsert_response(kind=config_step.cache_kind, dataset=dataset, config=config, content={}, http_status=HTTPStatus.OK)
     upsert_response(
         kind=split_step.cache_kind, dataset=dataset, config=config, split=split, content={}, http_status=HTTPStatus.OK
     )
@@ -98,6 +109,6 @@ def test_errors() -> None:
         kind=dataset_step.cache_kind, dataset=dataset_c, content={}, http_status=HTTPStatus.INTERNAL_SERVER_ERROR
     )
     assert get_valid(processing_steps_for_valid=processing_steps_for_valid) == [dataset_a, dataset_b]
-    assert is_valid(dataset=dataset_a, processing_steps_for_valid=processing_steps_for_valid) is True
-    assert is_valid(dataset=dataset_b, processing_steps_for_valid=processing_steps_for_valid) is True
-    assert is_valid(dataset=dataset_c, processing_steps_for_valid=processing_steps_for_valid) is False
+    assert is_valid(dataset=dataset_a, processing_steps_for_valid=processing_steps_for_valid)
+    assert is_valid(dataset=dataset_b, processing_steps_for_valid=processing_steps_for_valid)
+    assert not is_valid(dataset=dataset_c, processing_steps_for_valid=processing_steps_for_valid)

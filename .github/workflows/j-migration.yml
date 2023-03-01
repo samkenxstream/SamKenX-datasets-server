@@ -5,10 +5,20 @@ name: jobs/mongodb_migration
 on:
   workflow_dispatch:
   push:
+    branches:
+      - main
     paths:
       - 'jobs/mongodb_migration/**'
       - 'libs/libcommon/**'
-      - '.github/workflows/j-mongodb_migration.yml'
+      - '.github/workflows/j-migration.yml'
+      - '.github/workflows/_quality-python.yml'
+      - '.github/workflows/_unit-tests-python.yml'
+      - 'tools/docker-compose-mongo.yml'
+  pull_request:
+    paths:
+      - 'jobs/mongodb_migration/**'
+      - 'libs/libcommon/**'
+      - '.github/workflows/j-migration.yml'
       - '.github/workflows/_quality-python.yml'
       - '.github/workflows/_unit-tests-python.yml'
       - 'tools/docker-compose-mongo.yml'
